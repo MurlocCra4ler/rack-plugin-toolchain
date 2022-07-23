@@ -21,6 +21,10 @@ DOCKER_IMAGE_VERSION := 3
 
 all: toolchain-all
 
+clean:
+	rm -rf MacOSX*.sdk.tar.* local plugin-build Rack-SDK-* osxcross
+
+
 # Toolchain build
 
 
@@ -77,7 +81,8 @@ $(toolchain-mac):
 	cd osxcross/build/llvm-$(MAC_CLANG_VERSION).src/build && make install -j $(JOBS)
 
 	# Build osxcross
-	cp MacOSX11.1.sdk.tar.* osxcross/tarballs/
+	wget "https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/MacOSX11.3.sdk.tar.xz" 
+	mv MacOSX11.3.sdk.tar.* osxcross/tarballs/
 	cd osxcross && PATH="$(LOCAL_DIR)/bin:$(PATH)" UNATTENDED=1 TARGET_DIR="$(LOCAL_DIR)/osxcross" JOBS=$(JOBS) ./build.sh
 
 	# Build Mac version of binutils and build LLVM gold
@@ -219,47 +224,5 @@ dep-ubuntu:
 		zstd \
 		markdown
 
-
-dep-arch-linux:
-	# TODO Complete this list
-	sudo pacman -S --needed \
-		wget \
-		help2man
-
-
-docker-build: rack-sdk-all
-	docker build --build-arg JOBS=$(JOBS) --tag rack-plugin-toolchain:$(DOCKER_IMAGE_VERSION) .
-
-
-DOCKER_RUN := docker run --rm --interactive --tty \
-	--volume=$(PLUGIN_DIR):/home/build/plugin-src \
-	--volume=$(PWD)/$(PLUGIN_BUILD_DIR):/home/build/rack-plugin-toolchain/$(PLUGIN_BUILD_DIR) \
-	--volume=$(PWD)/Rack-SDK-mac:/home/build/rack-plugin-toolchain/Rack-SDK-mac \
-	--volume=$(PWD)/Rack-SDK-win:/home/build/rack-plugin-toolchain/Rack-SDK-win \
-	--volume=$(PWD)/Rack-SDK-lin:/home/build/rack-plugin-toolchain/Rack-SDK-lin \
-	--env PLUGIN_DIR=/home/build/plugin-src \
-	rack-plugin-toolchain:$(DOCKER_IMAGE_VERSION) \
-	/bin/bash
-
-docker-run:
-	$(DOCKER_RUN)
-
-docker-plugin-build-mac:
-	mkdir -p $(PLUGIN_BUILD_DIR)
-	$(DOCKER_RUN) -c "$(MAKE) plugin-build-mac $(MFLAGS)"
-
-docker-plugin-build-win:
-	mkdir -p $(PLUGIN_BUILD_DIR)
-	$(DOCKER_RUN) -c "$(MAKE) plugin-build-win $(MFLAGS)"
-
-docker-plugin-build-lin:
-	mkdir -p $(PLUGIN_BUILD_DIR)
-	$(DOCKER_RUN) -c "$(MAKE) plugin-build-linux $(MFLAGS)"
-
-docker-plugin-build:
-	mkdir -p $(PLUGIN_BUILD_DIR)
-	$(DOCKER_RUN) -c "$(MAKE) plugin-build $(MFLAGS)"
-
-
 .NOTPARALLEL:
-.PHONY: all plugin-build
+.PHONY: all clean plugin-build
